@@ -1,0 +1,13 @@
+node_modules/
+.DS_Store
+test-results/
+playwright-report/
+.playwright/
+
+# Env files — copy .env.example and fill in your values
+.env
+.env.playwright
+.env.local
+
+# Claude Code local settings — copy from settings.local.json.example and fill in your values
+.claude/settings.local.json

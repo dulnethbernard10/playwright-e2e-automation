@@ -1,0 +1,13 @@
+{
+  "enabledMcpjsonServers": [
+    "mysql",
+    "playwright"
+  ],
+  "env": {
+    "MYSQL_HOST": "your-mysql-host",
+    "MYSQL_PORT": "3306",
+    "MYSQL_USER": "your-mysql-username",
+    "MYSQL_PASS": "your-mysql-password",
+    "MYSQL_DB": "your-database-name"
+  }
+}
