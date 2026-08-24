@@ -108,6 +108,14 @@ Screenshots of failures are saved automatically to `test-results/`.
 
 ---
 
+## Playwright skills
+
+See **[SKILLS.md](SKILLS.md)** for the installed `playwright-cli` skill: the snapshot/ref model, saved
+auth state, the plan → generate → heal test-authoring workflow, request mocking, parallel sessions,
+and tracing/video capture.
+
+---
+
 ## Notes
 
 - `.env.playwright` and `.claude/settings.local.json` are gitignored — never commit credentials
