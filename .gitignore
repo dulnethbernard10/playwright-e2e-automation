@@ -3,6 +3,7 @@ node_modules/
 test-results/
 playwright-report/
 .playwright/
+.playwright-mcp/
 
 # Env files — copy .env.example and fill in your values
 .env
@@ -14,3 +15,5 @@ playwright-report/
 evidence/
 tests/.auth/
 .playwright-cli/
+screenshots/*
+!screenshots/.gitkeep

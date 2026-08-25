@@ -14,6 +14,13 @@
         "MYSQL_PASS": "${MYSQL_PASS}",
         "MYSQL_DB": "${MYSQL_DB}"
       }
+    },
+    "qase": {
+      "command": "npx",
+      "args": ["-y", "@qase/mcp-server"],
+      "env": {
+        "QASE_API_TOKEN": "${QASE_API_TOKEN}"
+      }
     }
   }
 }

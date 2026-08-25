@@ -1,0 +1,16 @@
+{
+  "mcpServers": {
+    "clickup": {
+      "command": "npx",
+      "args": ["-y", "@clickup/mcp-server"]
+    },
+    "playwright": {
+       "command": "npx",
+        "args": ["-y", "@playwright/mcp@latest", "--output-dir=.playwright-mcp"]
+    },
+    "qase": {
+      "command": "npx",
+      "args": ["-y", "@qase/mcp-server"]
+    }
+  }
+}
