@@ -11,3 +11,6 @@ playwright-report/
 
 # Claude Code local settings — copy from settings.local.json.example and fill in your values
 .claude/settings.local.json
+evidence/
+tests/.auth/
+.playwright-cli/
