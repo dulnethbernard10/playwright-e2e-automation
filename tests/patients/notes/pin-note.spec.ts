@@ -1,6 +1,4 @@
-import { test } from '@playwright/test';
-import { PatientsLookupPage } from '../../support/pages/PatientsLookupPage';
-import { PatientNotesPage } from './pages/PatientNotesPage';
+import { test } from './fixtures';
 import { uniqueNoteDescription } from '../../support/test-data';
 
 /**
@@ -11,15 +9,7 @@ import { uniqueNoteDescription } from '../../support/test-data';
  * field to pick up the change — see PatientNotesPage.expectPinnedInHeader()).
  */
 test.describe('Patient notes', () => {
-  test('pins a note and it appears in the patient header', async ({ page }) => {
-    const patients = new PatientsLookupPage(page);
-    await patients.goto();
-    await patients.searchByName('James', 'Baker');
-    await patients.openPatient('James Baker');
-
-    const notes = new PatientNotesPage(page);
-    await notes.open();
-
+  test('pins a note and it appears in the patient header', async ({ notes }) => {
     const description = uniqueNoteDescription('PinNote');
     const addModal = await notes.openAddNoteModal();
     await addModal.createNote({ description });

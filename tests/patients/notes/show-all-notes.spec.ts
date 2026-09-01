@@ -1,6 +1,4 @@
-import { expect, test } from '@playwright/test';
-import { PatientsLookupPage } from '../../support/pages/PatientsLookupPage';
-import { PatientNotesPage } from './pages/PatientNotesPage';
+import { expect, test } from './fixtures';
 import { uniqueNoteDescription } from '../../support/test-data';
 
 /**
@@ -12,15 +10,7 @@ import { uniqueNoteDescription } from '../../support/test-data';
  * again once it's unchecked.
  */
 test.describe('Patient notes', () => {
-  test('toggling Show All reveals archived notes and hides them again', async ({ page }) => {
-    const patients = new PatientsLookupPage(page);
-    await patients.goto();
-    await patients.searchByName('James', 'Baker');
-    await patients.openPatient('James Baker');
-
-    const notes = new PatientNotesPage(page);
-    await notes.open();
-
+  test('toggling Show All reveals archived notes and hides them again', async ({ notes }) => {
     const visible = uniqueNoteDescription('ShowAllVisible');
     const archived = uniqueNoteDescription('ShowAllArchived');
     for (const description of [visible, archived]) {

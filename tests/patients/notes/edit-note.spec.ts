@@ -1,6 +1,4 @@
-import { expect, test } from '@playwright/test';
-import { PatientsLookupPage } from '../../support/pages/PatientsLookupPage';
-import { PatientNotesPage } from './pages/PatientNotesPage';
+import { expect, test } from './fixtures';
 import { uniqueNoteDescription } from '../../support/test-data';
 
 /**
@@ -10,15 +8,7 @@ import { uniqueNoteDescription } from '../../support/test-data';
  * edits both Description and Noted During, and asserts the grid reflects both changes.
  */
 test.describe('Patient notes', () => {
-  test('edits an existing note and the grid reflects the change', async ({ page }) => {
-    const patients = new PatientsLookupPage(page);
-    await patients.goto();
-    await patients.searchByName('James', 'Baker');
-    await patients.openPatient('James Baker');
-
-    const notes = new PatientNotesPage(page);
-    await notes.open();
-
+  test('edits an existing note and the grid reflects the change', async ({ notes }) => {
     const original = uniqueNoteDescription('EditNote');
     const addModal = await notes.openAddNoteModal();
     await addModal.createNote({ description: original });

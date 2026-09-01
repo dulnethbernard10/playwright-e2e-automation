@@ -1,6 +1,4 @@
-import { test } from '@playwright/test';
-import { PatientsLookupPage } from '../../support/pages/PatientsLookupPage';
-import { PatientNotesPage } from './pages/PatientNotesPage';
+import { test } from './fixtures';
 import { uniqueNoteDescription } from '../../support/test-data';
 
 /**
@@ -11,19 +9,9 @@ import { uniqueNoteDescription } from '../../support/test-data';
  * PatientNotesPage for the "Show All" caveat).
  */
 test.describe('Patient notes', () => {
-  let notes: PatientNotesPage;
-
-  test.beforeEach(async ({ page }) => {
-    const patients = new PatientsLookupPage(page);
-    await patients.goto();
-    await patients.searchByName('James', 'Baker');
-    await patients.openPatient('James Baker');
-
-    notes = new PatientNotesPage(page);
-    await notes.open();
-  });
-
-  test('archives a single note via its row action and it is no longer visible in the grid', async () => {
+  test('archives a single note via its row action and it is no longer visible in the grid', async ({
+    notes
+  }) => {
     const description = uniqueNoteDescription('ArchiveNote');
     const addModal = await notes.openAddNoteModal();
     await addModal.createNote({ description });
@@ -34,7 +22,7 @@ test.describe('Patient notes', () => {
     await notes.expectNoteNotFound(description);
   });
 
-  test('bulk-archives multiple checked notes and none remain visible in the grid', async () => {
+  test('bulk-archives multiple checked notes and none remain visible in the grid', async ({ notes }) => {
     const descriptions = [uniqueNoteDescription('BulkArchiveA'), uniqueNoteDescription('BulkArchiveB')];
     for (const description of descriptions) {
       const addModal = await notes.openAddNoteModal();
