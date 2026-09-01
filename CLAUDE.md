@@ -31,7 +31,9 @@ tests/
 ├── support/                       # cross-domain helpers only
 │   ├── paths.ts                   # shared filesystem paths
 │   ├── test-data.ts               # synthetic data generators
-│   └── screenshots.ts             # ticket-scoped evidence capture
+│   ├── screenshots.ts             # ticket-scoped evidence capture
+│   └── pages/                     # POMs used by 2+ domains
+│       └── PatientsLookupPage.ts  # search/open a patient — used by onboarding & notes
 │
 ├── administration/                # ← domain
 │   └── companies/                 # ← feature area
@@ -39,6 +41,23 @@ tests/
 │       │   ├── CompaniesListPage.ts
 │       │   └── AddCompanyWizard.ts
 │       └── company-creation.spec.ts
+│
+├── patients/                      # Patients Management
+│   ├── onboarding/                # ← feature area
+│   │   ├── pages/
+│   │   │   └── AddPatientModal.ts
+│   │   └── patient-creation.spec.ts
+│   └── notes/                     # ← feature area
+│       ├── pages/
+│       │   ├── PatientNotesPage.ts
+│       │   ├── AddNoteModal.ts
+│       │   └── EditNoteModal.ts
+│       ├── add-note.spec.ts
+│       ├── edit-note.spec.ts
+│       ├── share-note.spec.ts
+│       ├── archive-note.spec.ts
+│       ├── show-all-notes.spec.ts
+│       └── pin-note.spec.ts
 │
 ├── rpm/                           # Remote Patient Monitoring
 ├── ccm/                           # Chronic Care Management
@@ -49,7 +68,7 @@ tests/
 ### Rules
 
 1. **Domain first, then feature area.** `tests/<domain>/<feature>/`. Domains follow the
-   portal's business areas: `administration`, `rpm`, `ccm`, `mtm`, `tcm`, `reports`.
+   portal's business areas: `administration`, `patients`, `rpm`, `ccm`, `mtm`, `tcm`, `reports`.
 2. **One spec per user-facing flow**, named after the flow, not the page —
    `company-creation.spec.ts`, not `companies.spec.ts`. When company *editing* arrives it
    becomes `company-edit.spec.ts` alongside it, reusing the same POMs.
@@ -91,15 +110,15 @@ chrome (the "Search Patients" box), not on a specific URL.
 
 ## Test data
 
-- All generated companies are prefixed **`ZZ E2E`** — identifiable and they sort to the end
-  of the alphabetical grid.
+- All generated companies, patient last names, and note descriptions are prefixed
+  **`ZZ E2E`** — identifiable and they sort to the end of alphabetically-sorted grids.
 - Company-creating tests set the **Mock company** flag by default, which excludes the record
   from reporting and analytics. Keep it that way unless a test is specifically about
   non-mock behaviour.
 - **Synthetic data only.** Never real patient or customer data, never PHI, never production
   accounts. Credentials live in `.env` (gitignored) and are read via `process.env`.
-- Records are **not** cleaned up automatically. The QA companies grid accumulates `ZZ E2E`
-  rows; purge them server-side when they get noisy.
+- Records are **not** cleaned up automatically. The QA companies/patients grids accumulate
+  `ZZ E2E` rows; purge them server-side when they get noisy.
 
 ## Verifying a created company
 
@@ -139,3 +158,71 @@ Behaviours worth knowing:
 - Location fields' accessible names are exactly `Name` and `Name Tag` — use `exact: true`,
   which does not collide with Company Name or Organization Name.
 - Duplicate names are rejected client-side with **"Company name already taken"**.
+
+## Add Patient modal — verified behaviour
+
+Against the DEV portal, build `2026-08-31-1`. Opened from Patients Lookup's **Add Patient**
+button (icon-only in the accessibility tree, but its accessible name still resolves to
+"Add Patient" because the icon and label share one `<button>`).
+
+- **Client Organization and Client Location have a broken `aria-labelledby`** — it points to
+  an id that doesn't exist (the real label id has an extra `-input` suffix), so their
+  triggers have no accessible name until a value is picked. `AddPatientModal` locates them
+  structurally instead, via their hidden sibling `<input placeholder="...">`. Health Plan and
+  Address State don't have this bug and are selectable by accessible name normally.
+- **Client Location options depend on the selected Client Organization**, and some
+  organizations have none. `pickOrganizationAndStore()` tries organizations in dropdown
+  order until one has an available store — don't hardcode an organization name, since which
+  ones have stores varies by environment.
+- **Saving for an RPM-enabled organization pops a second "Confirm RPM Enrollment?" dialog.**
+  `AddPatientModal.save()` declines it (clicks "No") so this modal only creates the patient.
+  It waits for the Add Patient dialog to close *first*, then checks for the confirm dialog —
+  racing the two is unsafe, since the Add Patient dialog can unmount before the confirm
+  dialog finishes mounting, which would wrongly skip declining it and leave it open.
+- **The patients grid re-cases the name it displays** (e.g. a last name typed as
+  `ZZ E2E Onboard` renders as `Zz e2e onboard`), so verifying a created patient needs a
+  case-insensitive match — see `PatientsLookupPage.expectPatientFound()`.
+
+## Add / Update Account Note modal — verified behaviour
+
+Opened from a patient's Notes tab (`/patients/:id/details/notes`), via the **Misc → Notes**
+side-nav item, the header's `+` icon button (Add), and each row's pencil icon (Update).
+
+- **Two elements on a patient page compute the same accessible name, "Notes"**: the side-nav
+  item and an unrelated quick-access icon further up the page. `PatientNotesPage` scopes to
+  the `navigation` landmark, since only the side nav is one.
+- **The "add note" button is icon-only with no accessible name** and no unique attribute —
+  there are 3 `AddIcon`s on a patient page. It's found structurally: the innermost container
+  that has both the "Patient Notes" header text and an `AddIcon` descendant (see
+  `PatientNotesPage` for why `.last()` picks the innermost one).
+- **Each note row has 3 icon-only action buttons with no accessible names**, in order: pin
+  (`PushPinOutlinedIcon`), edit (`EditIcon`), archive (`ArchiveIcon`). Since notes accumulate
+  and are never cleaned up, `PatientNotesPage.noteRow()` finds a row by its description text
+  rather than by position.
+- **"Noted During"** defaults to "Talk with Patient" on Add; leave it alone unless the test is
+  specifically about that field.
+- **Archiving needs confirmation**, unlike bulk-share. Both the row archive icon and the
+  toolbar's bulk archive button open a dialog whose heading varies with count ("Archive
+  note" singular, "Archive N notes" plural — matched by a `/^Archive/` prefix, not exact
+  text) with "Archive" / "Cancel". Once confirmed, the note(s) drop out of the default grid
+  view entirely and only reappear if the toolbar's "Show All" checkbox is checked (unchecked
+  by default) — see `PatientNotesPage.expectNoteNotFound()`. The toolbar button's own
+  accessible name is also count-dependent ("Archive (2) Notes"), so it's matched by pattern.
+- **The "Shared with Provider" grid column is icon-only with no accessible name** — empty
+  when a note isn't shared, a `HowToRegIcon` once it is. Read it via the cell's own
+  `data-field="sharedWithProvider"` (a stable MUI DataGrid attribute, not a hashed class) —
+  see `PatientNotesPage.sharedWithProviderCell()`.
+- **The toolbar's SHARE WITH PROVIDERS button bulk-shares every checked row** in one click,
+  with no confirmation dialog. It's disabled until at least one row checkbox is checked, but
+  needs no explicit wait — Playwright's click already blocks on an element becoming enabled.
+  Each row checkbox's accessible name toggles "Select row" / "Unselect row" with its checked
+  state; `PatientNotesPage.noteCheckbox()` matches both with one pattern.
+- **Editing races the modal's own prefill.** Update Account Note opens with Description
+  empty and fills it asynchronously from the note's current text a moment later. Typing before
+  that prefill lands has been observed to get silently clobbered once it resolves — the save
+  then closes normally but persists neither the new Description nor Noted During, with no
+  error. `EditNoteModal.expectOpen()` waits for Description to actually hold text (not just be
+  visible) before returning, which resolved the flake in a few dozen local runs. `selectNotedDuring()`
+  additionally reads the trigger's own label back after selecting, and `save()` re-checks
+  Description's value beforehand — both are cheap and harmless if the underlying race is ever
+  fixed, so they're left in rather than pulled once unneeded.
