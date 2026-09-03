@@ -174,6 +174,11 @@ button (icon-only in the accessibility tree, but its accessible name still resol
   organizations have none. `pickOrganizationAndStore()` tries organizations in dropdown
   order until one has an available store — don't hardcode an organization name, since which
   ones have stores varies by environment.
+- **The Client Organization option list populates from an async fetch after the dropdown
+  opens.** Reading it immediately after the click can race that fetch and see an empty list —
+  observed as `pickOrganizationAndStore()` throwing "No organization among []..." (an empty
+  array, not merely all-empty-stores). It now waits for the first option to render before
+  reading the list.
 - **Saving for an RPM-enabled organization pops a second "Confirm RPM Enrollment?" dialog.**
   `AddPatientModal.save()` declines it (clicks "No") so this modal only creates the patient.
   It waits for the Add Patient dialog to close *first*, then checks for the confirm dialog —
@@ -226,3 +231,117 @@ side-nav item, the header's `+` icon button (Add), and each row's pencil icon (U
   additionally reads the trigger's own label back after selecting, and `save()` re-checks
   Description's value beforehand — both are cheap and harmless if the underlying race is ever
   fixed, so they're left in rather than pulled once unneeded.
+
+## Add Insurance wizard — verified behaviour
+
+Against the DEV portal, build `2026-09-01-2`. Reached from a patient's edit-profile page
+(`/providers/:id/update-profile`, opened via the **Open profile** button in a patient's
+persistent header widget) via the side nav's **Insurance Plans** item
+(`/providers/:id/insurance-plans`), then its **Add New Insurance** button.
+
+- **Insurance Plans refuses to do anything until the patient has a Demographic Profile.**
+  Without one the page shows "Add the Demographic Profile to manage insurance details." and an
+  "Add Demographic Profile" button that opens a reactive modal — but the specs avoid that path
+  entirely, adding the Demographic Profile up front instead via the patient edit-profile page's
+  **Patient Profile** tab (`PatientEditProfilePage.goToPatientProfile()`), whose own
+  "Demographic Profile:" section has the same fields behind an "Add Demographic Profile"
+  checkbox. **Saving there navigates away** to the patient's general details page (unlike the
+  modal, which just closes in place), so `add-insurance.spec.ts` /
+  `insurance-sequence.spec.ts` re-open the edit-profile page afterwards to reach Insurance
+  Plans. Field-selection logic is shared between both entry points via
+  `DemographicProfileFields`.
+- **Marital Status and Contact Preference have the same broken-accessible-name bug as Client
+  Organization / Client Location in AddPatientModal** — no accessible name until a value is
+  chosen. Unlike those two, there's no placeholder-input sibling to key off; instead they're
+  located by their own auto-generated MUI DOM id (`mui-component-select-maritalStatus` /
+  `-contactPreference`), which is stable since MUI derives it from the field's name — safe to
+  look up unscoped since the modal and the inline section are never both mounted at once. A
+  text-based structural locator was tried first and was flaky (adjacent field poppers made the
+  match target intermittently "not stable", so clicks landed without opening the dropdown).
+- **Contact Preference's option list can have disabled options** (e.g. "Homephone", "Mobile
+  Phone" — disabled when the patient has no phone on file), so `DemographicProfileFields`
+  filters on `[aria-disabled="true"]` rather than always picking the first option.
+- **The wizard has no "Next" button.** Each step (Insurance Type → Payer → Plan Type →
+  Insurance Package → Plan & Holder Details, for the Commercial/Other Plan path) is a flat list
+  of clickable cards; picking one immediately reveals the next step in place. Save/Cancel/Back
+  only appear on the final step, whose Policy Holder Details are read-only and pre-filled from
+  the patient's own profile — Insurance ID Number is the only field left to fill in.
+- **"Dual Eligible Medicare/Medicaid Plan" previews and saves *two* plans in one wizard run.**
+  Its final step still has the Medicare plan just selected (labelled "Primary"), but adds a
+  second, separate "Secondary Insurance (Medicaid)" section with its own editable Insurance
+  Package (pre-selected to a Medicaid package, e.g. "Medicaid-NC (Medicaid)", but changeable)
+  and its own Insurance ID Number. One Save creates both. Both sections reuse the same field
+  labels as the single-plan flow, so `AddInsuranceWizard` disambiguates by the underlying HTML
+  `name` attribute (`insuranceIdNumber` / `secondaryInsuranceIdNumber`) rather than accessible
+  name, and by document order (`.last()`) for the Secondary Insurance Package combobox. That
+  combobox is an `<input role="combobox">` whose value lives in the `value` attribute, not text
+  content — assert it with `toHaveValue()`, not `toContainText()`. The saved Secondary card's
+  payer heading reads "Traditional Medicaid (NC)" (not the package name shown in the wizard),
+  with plan type "Medicaid Plan".
+- **Known defect: Insurance ID Number silently fails past 25 characters.** It's forwarded to
+  an upstream Athena API with a 25-character limit, and the app surfaces nothing when that's
+  exceeded — Save just leaves the dialog open with no visible error (only the
+  `addAthenaAccountInsurance` GraphQL response says why, and the UI never reads it). There's no
+  client-side length check either. `uniqueInsuranceMemberId()` stays within the limit.
+- **Each saved plan card carries a collapsed "Additional Information" accordion** holding a raw
+  field-by-field dump of that plan (payer, Member ID, and nearly everything else on the card,
+  each as its own real element — not one opaque string) that's present in the DOM, and passes a
+  `:visible` check, even though never expanded. It duplicates almost every value the card shows,
+  so naive `hasText`/`has:` filtering on payer + Member ID alone keeps resolving to a
+  sub-container that satisfies both via the dump rather than the real card. The one thing the
+  dump never contains is the sequence badge wording ("Primary"/"Secondary"/"Insurance N" — the
+  dump has `sequencenumber1`, not "Primary") — `InsurancePlansPage.insuranceCard()` requires
+  that as a third signal, forcing the match to widen out past the dump to the real card.
+- **Resolved DEV-environment issue, worth remembering why:** adding insurance for a freshly
+  created patient used to fail server-side almost every time — a 500
+  (`undefined method 'external_id' for nil`) or a clean `MISSING_EHR_ID` GraphQL error — when
+  the patient's Demographic Profile had been added via Insurance Plans' own reactive modal.
+  Every automated run failed at that step across 5 full runs (10 attempts counting retries).
+  Switching both specs to add the Demographic Profile via the **Patient Profile tab** instead
+  (`PatientProfilePage.addDemographicProfile()`) made the issue disappear entirely — several
+  clean runs since, no retries needed. The two entry points fill the same fields and (as far as
+  the UI shows) produce the same profile, so the modal path likely triggers the patient's
+  Athena/EHR account link differently, or a needed side effect only fires via the Patient
+  Profile tab's save. **Don't reintroduce the modal-based flow for these specs without
+  re-verifying this** — `AddInsuranceWizard.save()` still retries a bounded number of times as
+  a cheap safety net, but that retry alone never fixed the original failures; the flow change
+  did.
+
+## Edit Insurance Plan dialog — verified behaviour
+
+Against the DEV portal, build `2026-09-01-2`. Opened from a saved plan card's icon-only pencil
+"Edit" button on Insurance Plans.
+
+- **Only Insurance ID Number can be updated.** Insurance Package, Sequence, and Insurance Phone
+  Number are all rendered disabled alongside the read-only Policy Holder Details — there's
+  currently no supported way to change a plan's payer, package, or sequence after creation.
+  `EditInsuranceWizard.expectOnlyInsuranceIdNumberEditable()` asserts this explicitly rather
+  than the test just working around it, so a future loosening of the restriction shows up as a
+  real assertion failure here instead of silently going unnoticed.
+- **The submit button reads "Update Insurance Plan"**, not "Save" — a different label from
+  every other Save/Cancel pairing in this app.
+- **The app uppercases Insurance ID Number on submit** (e.g. a value ending `...Orig` comes
+  back as `...ORIG`). Not an issue for `uniqueInsuranceMemberId()`, whose output is already
+  all-uppercase/digits, but worth knowing if a future caller passes lowercase.
+
+## Insurance Card Image dialog — verified behaviour
+
+Against the DEV portal, build `2026-09-01-2`. Opened from a saved plan card's "Add Card Image"
+button on Insurance Plans.
+
+- **Desktop Upload reveals a drag-and-drop form**, not an immediate native file picker — front
+  and back drop zones (both optional), each with a "Browse File" button and a hidden
+  `<input type="file">`. Clicking "Browse File" does not reliably open a native OS file
+  chooser in this environment (no `filechooser` event fires for Playwright to intercept), so
+  `InsuranceCardImageDialog.uploadFrontImage()` calls `setInputFiles()` on the hidden input
+  directly instead — the standard, CI-reliable way to drive a file input regardless of whether
+  the native picker would work.
+- **Upload starts disabled** and only enables once a file is chosen, at which point a preview
+  thumbnail appears in that dropzone.
+- **After a successful upload, the dialog immediately swaps to showing the saved image**
+  ("Insurance Card 1") with zoom in/out/reset controls, replacing the upload form. It's a real
+  save, not just a client-side preview: closing and reopening the dialog (a fresh load) still
+  shows the same image.
+- The committed test fixture lives at `tests/patients/insurance/test-assets/insurance-card.png`
+  — a minimal 1×1 PNG. Its content doesn't matter to the app, only that it's a valid PNG/JPEG
+  under whatever size limit exists (untested here).
