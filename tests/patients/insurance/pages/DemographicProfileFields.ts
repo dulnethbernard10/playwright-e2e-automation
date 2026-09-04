@@ -7,10 +7,10 @@ import type { Locator, Page } from '@playwright/test';
  * PatientProfilePage) — and both wrap this class, scoped to their own container.
  *
  * Verified against the DEV portal, build 2026-09-01-2:
- *  - Language, Race, Ethnicity, and Usual Provider are ordinary MUI comboboxes, each with a
- *    properly labelled "Open" button, found by scoping to the innermost container holding the
- *    field's label text (the "text-filter + `.last()`" idiom used elsewhere in this repo, e.g.
- *    PatientNotesPage).
+ *  - Language, Race, Ethnicity, and Usual Provider are ordinary MUI comboboxes, properly
+ *    labelled — selectable by accessible name via `getByRole('combobox', { name })`, the same
+ *    proven locator PatientProfileEditPage already uses for its own copy of these fields (see
+ *    the class doc above on why both wrap this one class).
  *  - Marital Status and Contact Preference are NOT — like Client Organization / Client
  *    Location in AddPatientModal, their triggers have no accessible name at all (a broken
  *    aria-labelledby) until a value is chosen, and unlike the fields above, a text-based
@@ -36,18 +36,13 @@ export class DemographicProfileFields {
   readonly contactPreferenceTrigger: Locator;
 
   constructor(private readonly page: Page, scope: Locator) {
-    this.languageTrigger = this.fieldContainer(scope, /^Language/).getByRole('button', { name: 'Open' });
-    this.raceTrigger = this.fieldContainer(scope, /^Race/).getByRole('button', { name: 'Open' });
-    this.ethnicityTrigger = this.fieldContainer(scope, /^Ethnicity/).getByRole('button', { name: 'Open' });
-    this.usualProviderTrigger = this.fieldContainer(scope, /^Usual Provider/).getByRole('button', { name: 'Open' });
+    this.languageTrigger = scope.getByRole('combobox', { name: 'Language' });
+    this.raceTrigger = scope.getByRole('combobox', { name: 'Race' });
+    this.ethnicityTrigger = scope.getByRole('combobox', { name: 'Ethnicity' });
+    this.usualProviderTrigger = scope.getByRole('combobox', { name: 'Usual Provider' });
 
     this.maritalStatusTrigger = this.page.locator('#mui-component-select-maritalStatus');
     this.contactPreferenceTrigger = this.page.locator('#mui-component-select-contactPreference');
-  }
-
-  /** The innermost field wrapper whose text starts with the given label — see class docs. */
-  private fieldContainer(scope: Locator, labelPattern: RegExp): Locator {
-    return scope.locator('div').filter({ hasText: labelPattern }).last();
   }
 
   private async selectFirstOption(trigger: Locator): Promise<void> {
