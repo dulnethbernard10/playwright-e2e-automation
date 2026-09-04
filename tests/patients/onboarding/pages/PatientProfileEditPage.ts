@@ -1,4 +1,5 @@
 import { expect, type Locator, type Page } from '@playwright/test';
+import { DemographicProfileFields } from '../../../support/pages/DemographicProfileFields';
 
 export type Gender = 'Male' | 'Female';
 
@@ -90,13 +91,13 @@ export interface DemographicProfileEdits {
  *    safe to call either way without accidentally collapsing it.
  *  - Save navigates to `/patients/:id/details`; there is no confirmation dialog or toast, so
  *    the URL change is the signal the edit was submitted.
- *  - Demographic Profile: Race, Ethnicity, and Language are MUI Autocompletes (short lists,
- *    selectable by accessible name); Marital Status and Contact Preference are broken-label
- *    Selects like Gender, located via `#mui-component-select-<field>`. All fields render
- *    disabled until "Add Demographic Profile" is checked. That checkbox — and the whole
- *    section's disabled state — only exists for a patient with no demographic profile yet;
- *    once one has been saved, the fields stay directly editable with no checkbox and an
- *    "EHR ID: <n>" label appears instead.
+ *  - Demographic Profile field locators/selection (Language, Race, Ethnicity, Marital Status,
+ *    Contact Preference, Usual Provider) are shared with Insurance Plans' own copy of this
+ *    form via `DemographicProfileFields` — see that class for the field-level quirks. All
+ *    fields render disabled until "Add Demographic Profile" is checked. That checkbox — and
+ *    the whole section's disabled state — only exists for a patient with no demographic
+ *    profile yet; once one has been saved, the fields stay directly editable with no checkbox
+ *    and an "EHR ID: <n>" label appears instead.
  *  - Guarantor Information is a collapsed MUI Accordion; its content only renders once expanded,
  *    at which point it's the page's only `role=region`, which is how `guarantorRegion` scopes
  *    to it. That scoping matters because the fields inside reuse the exact same accessible
@@ -140,6 +141,7 @@ export class PatientProfileEditPage {
   readonly canAccessMedicalRecordsCheckbox: Locator;
 
   readonly addDemographicProfileCheckbox: Locator;
+  private readonly demographicFields: DemographicProfileFields;
   readonly languageTrigger: Locator;
   readonly raceTrigger: Locator;
   readonly ethnicityTrigger: Locator;
@@ -193,13 +195,14 @@ export class PatientProfileEditPage {
     });
 
     this.addDemographicProfileCheckbox = page.getByRole('checkbox', { name: 'Add Demographic Profile' });
-    this.languageTrigger = page.getByRole('combobox', { name: 'Language' });
-    this.raceTrigger = page.getByRole('combobox', { name: 'Race' });
-    this.ethnicityTrigger = page.getByRole('combobox', { name: 'Ethnicity' });
-    this.maritalStatusTrigger = page.locator('#mui-component-select-maritalStatus');
-    this.usualProviderTrigger = page.getByRole('combobox', { name: 'Usual Provider' });
+    this.demographicFields = new DemographicProfileFields(page, page.locator('body'));
+    this.languageTrigger = this.demographicFields.languageTrigger;
+    this.raceTrigger = this.demographicFields.raceTrigger;
+    this.ethnicityTrigger = this.demographicFields.ethnicityTrigger;
+    this.maritalStatusTrigger = this.demographicFields.maritalStatusTrigger;
+    this.usualProviderTrigger = this.demographicFields.usualProviderTrigger;
     this.homePhoneInput = page.getByRole('textbox', { name: 'Home Phone', exact: true });
-    this.contactPreferenceTrigger = page.locator('#mui-component-select-contactPreference');
+    this.contactPreferenceTrigger = this.demographicFields.contactPreferenceTrigger;
 
     this.saveButton = page.getByRole('button', { name: 'Save', exact: true });
   }
@@ -311,33 +314,28 @@ export class PatientProfileEditPage {
   }
 
   async selectLanguage(name: string): Promise<void> {
-    await this.selectOption(this.languageTrigger, name);
+    await this.demographicFields.selectLanguage(name);
   }
 
   async selectRace(name: string): Promise<void> {
-    await this.selectOption(this.raceTrigger, name);
+    await this.demographicFields.selectRace(name);
   }
 
   async selectEthnicity(name: string): Promise<void> {
-    await this.selectOption(this.ethnicityTrigger, name);
+    await this.demographicFields.selectEthnicity(name);
   }
 
   async selectMaritalStatus(name: string): Promise<void> {
-    await this.selectOption(this.maritalStatusTrigger, name);
+    await this.demographicFields.selectMaritalStatus(name);
   }
 
   async selectContactPreference(name: string): Promise<void> {
-    await this.selectOption(this.contactPreferenceTrigger, name);
+    await this.demographicFields.selectContactPreference(name);
   }
 
   /** Selects `name` if given, otherwise picks whichever provider is first in the list. */
   async selectUsualProvider(name?: string): Promise<string> {
-    await this.usualProviderTrigger.click();
-    const option =
-      name !== undefined ? this.page.getByRole('option', { name, exact: true }) : this.page.getByRole('option').first();
-    const resolvedName = name ?? (await option.textContent()) ?? '';
-    await option.click();
-    return resolvedName;
+    return this.demographicFields.selectUsualProvider(name);
   }
 
   /**

@@ -92,6 +92,17 @@ export function uniqueNoteDescription(label = 'Note'): string {
 }
 
 /**
+ * Unique insurance Member ID, ZZ_PREFIX-tagged so E2E-created insurance plans are
+ * identifiable. Kept to 25 characters: the app forwards this value to Athena's Insurance ID
+ * Number field, which rejects longer values, and does so silently — the Add Insurance wizard
+ * just leaves its dialog open with no visible error (see AddInsuranceWizard).
+ */
+export function uniqueInsuranceMemberId(): string {
+  counter += 1;
+  return `${ZZ_PREFIX} ${Date.now()}${counter}`.slice(0, 25);
+}
+
+/**
  * Unique medication SIG text, ZZ_PREFIX-tagged so E2E-created medications are identifiable
  * in the Triage Medications grid. Used when Medication Name itself can't carry the prefix —
  * i.e. picked from the fixed autocomplete list rather than typed as free text.
