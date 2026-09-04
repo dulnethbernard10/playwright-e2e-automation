@@ -13,32 +13,6 @@ function escapeRegex(value: string): string {
  * Assign/unassign Client Organizations and Stores for a patient account
  * (`/providers/:id/client-org-store`), reached from the Patient Profile Edit screen's
  * Administration side menu ("Manage Client Orgs and Stores").
- *
- * Notes on the real DOM (verified against the DEV portal, build 2026-09-01-2):
- *  - Each organization renders as a `<li>` containing a checkbox (no accessible name) and a
- *    button whose accessible name is the organization name UPPERCASED SERVER-SIDE (not a CSS
- *    text-transform) — e.g. an org created as "Organization 5" renders its button label as
- *    "ORGANIZATION 5". Rows are matched case-insensitively rather than upper-casing the name.
- *  - The row's other control is an icon-only chevron button (no accessible name) that expands
- *    or collapses that organization's stores. It's the row's only other button besides the
- *    name button, so `.last()` reliably picks it (`.first()` picks the name button).
- *  - A organization's stores render as sibling rows immediately *after* the organization's own
- *    `<li>` — not nested inside it — wrapped together with it in a common parent, so the
- *    stores are located via `xpath=following-sibling::*[1]` off the organization row rather
- *    than as a descendant of it.
- *  - A store's checkbox is disabled until its organization's own checkbox is checked, and only
- *    interactable once the organization is expanded — MUI's Collapse keeps a collapsed
- *    organization's stores in the DOM but at zero height, which Playwright treats as hidden.
- *  - An organization with no stores expands to a single text-only row reading
- *    "No Locations Available" (no checkbox), which the store-row locator's checkbox filter
- *    naturally excludes.
- *  - A store row's accessible text is the store name immediately followed by its subtitle with
- *    no separator (e.g. "Location 4Loc 4"), so store rows are matched by a name *prefix*
- *    rather than an exact string.
- *  - "Assign Items" persists every currently-checked organization/store pair in one call (not
- *    just newly-changed ones) and raises a MUI Snackbar alert confirming success; the same
- *    message also comes back in the `assignClientOrgsStoresToAccount` mutation response, so the
- *    alert is a reliable, immediate success signal — no networkidle or fixed wait needed.
  */
 export class ManageClientOrgsAndStoresPage {
   readonly heading: Locator;
@@ -62,11 +36,11 @@ export class ManageClientOrgsAndStoresPage {
   async expectOpen(): Promise<void> {
     await this.page.waitForURL(/\/client-org-store/);
     await expect(this.heading).toBeVisible();
-    // The organization tree loads asynchronously after the heading renders — wait for its
-    // first row so callers (e.g. pickOrganizationWithStore()) never count an empty list.
+    // Org tree loads asynchronously — wait for the first row so callers never count an empty list.
     await expect(this.page.getByRole('checkbox').first()).toBeVisible();
   }
 
+  // Org names render UPPERCASED server-side, so rows are matched case-insensitively.
   private orgRow(organization: string): Locator {
     return this.page.getByRole('listitem').filter({ hasText: new RegExp(`^${escapeRegex(organization)}$`, 'i') });
   }
@@ -75,10 +49,12 @@ export class ManageClientOrgsAndStoresPage {
     return this.orgRow(organization).getByRole('checkbox');
   }
 
+  // The row's only other (icon-only) button is the expand/collapse chevron.
   private orgExpandToggle(organization: string): Locator {
     return this.orgRow(organization).getByRole('button').last();
   }
 
+  // Store text runs straight into its subtitle with no separator (e.g. "Location 4Loc 4"), hence the prefix match.
   private storeCheckbox(store: string): Locator {
     return this.page
       .getByRole('listitem')
@@ -95,7 +71,7 @@ export class ManageClientOrgsAndStoresPage {
     await this.orgCheckbox(organization).check();
   }
 
-  /** Requires the organization to already be checked and expanded — see the class-level notes. */
+  /** Requires the organization to already be checked and expanded. */
   async selectStore(store: string): Promise<void> {
     await this.storeCheckbox(store).check();
   }
@@ -104,15 +80,12 @@ export class ManageClientOrgsAndStoresPage {
     await this.orgCheckbox(organization).uncheck();
   }
 
-  /** Requires the organization to still be expanded — see the class-level notes. */
+  /** Requires the organization to still be expanded. */
   async deselectStore(store: string): Promise<void> {
     await this.storeCheckbox(store).uncheck();
   }
 
-  /**
-   * Persists every currently-checked organization/store pair — and drops any that were
-   * unchecked — in one call, then waits for the success alert.
-   */
+  /** Persists every currently-checked organization/store pair (and drops unchecked ones) in one call. */
   async assignSelected(): Promise<void> {
     await this.assignItemsButton.click();
     await expect(this.successAlert).toBeVisible();
@@ -134,13 +107,7 @@ export class ManageClientOrgsAndStoresPage {
     await expect(this.storeCheckbox(store)).not.toBeChecked();
   }
 
-  /**
-   * Expands organizations in list order until one has at least one available store, skipping
-   * any organization whose checkbox is already checked (e.g. the one auto-assigned when the
-   * patient was created). Returns that organization and one of its stores, picked but not yet
-   * checked — mirrors AddPatientModal.pickOrganizationAndStore(), since which organizations
-   * have stores varies by environment and must never be hardcoded.
-   */
+  /** Tries organizations in list order until one has an available store; skips already-checked ones. */
   async pickOrganizationWithStore(): Promise<OrganizationAndStore> {
     const orgRows = this.page.getByRole('listitem').filter({ has: this.page.getByRole('button') });
     const count = await orgRows.count();
@@ -153,6 +120,7 @@ export class ManageClientOrgsAndStoresPage {
       const expandToggle = row.getByRole('button').last();
       await expandToggle.click();
 
+      // Stores render as sibling rows right after the org's own <li>, not nested inside it.
       const storeRows = row
         .locator('xpath=following-sibling::*[1]')
         .getByRole('listitem')
@@ -168,7 +136,7 @@ export class ManageClientOrgsAndStoresPage {
         return { organization, store };
       }
 
-      await expandToggle.click(); // collapse — this organization has no stores, keep looking
+      await expandToggle.click(); // collapse — no stores here, keep looking
     }
 
     throw new Error('No organization with an available store was found');
