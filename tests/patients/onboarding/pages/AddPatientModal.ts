@@ -142,6 +142,8 @@ export class AddPatientModal {
    */
   async pickOrganizationAndStore(): Promise<OrganizationAndStore> {
     await this.organizationTrigger.click();
+    // Options populate from an unawaited async fetch — wait so we don't read zero of them.
+    await expect(this.page.getByRole('option').first()).toBeVisible();
     const organizations = await this.page.getByRole('option').allTextContents();
     await this.page.keyboard.press('Escape');
 
