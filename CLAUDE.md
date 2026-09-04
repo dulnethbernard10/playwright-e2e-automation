@@ -45,19 +45,26 @@ tests/
 ├── patients/                      # Patients Management
 │   ├── onboarding/                # ← feature area
 │   │   ├── pages/
-│   │   │   └── AddPatientModal.ts
-│   │   └── patient-creation.spec.ts
-│   └── notes/                     # ← feature area
+│   │   │   ├── AddPatientModal.ts
+│   │   │   └── PatientProfileEditPage.ts
+│   │   ├── patient-creation.spec.ts
+│   │   └── patient-profile-edit.spec.ts
+│   ├── notes/                     # ← feature area
+│   │   ├── pages/
+│   │   │   ├── PatientNotesPage.ts
+│   │   │   ├── AddNoteModal.ts
+│   │   │   └── EditNoteModal.ts
+│   │   ├── add-note.spec.ts
+│   │   ├── edit-note.spec.ts
+│   │   ├── share-note.spec.ts
+│   │   ├── archive-note.spec.ts
+│   │   ├── show-all-notes.spec.ts
+│   │   └── pin-note.spec.ts
+│   └── organizations/             # ← feature area
 │       ├── pages/
-│       │   ├── PatientNotesPage.ts
-│       │   ├── AddNoteModal.ts
-│       │   └── EditNoteModal.ts
-│       ├── add-note.spec.ts
-│       ├── edit-note.spec.ts
-│       ├── share-note.spec.ts
-│       ├── archive-note.spec.ts
-│       ├── show-all-notes.spec.ts
-│       └── pin-note.spec.ts
+│       │   └── ManageClientOrgsAndStoresPage.ts
+│       ├── assign-organizations-and-stores.spec.ts
+│       └── unassign-organizations-and-stores.spec.ts
 │
 ├── rpm/                           # Remote Patient Monitoring
 ├── ccm/                           # Chronic Care Management
@@ -345,3 +352,40 @@ button on Insurance Plans.
 - The committed test fixture lives at `tests/patients/insurance/test-assets/insurance-card.png`
   — a minimal 1×1 PNG. Its content doesn't matter to the app, only that it's a valid PNG/JPEG
   under whatever size limit exists (untested here).
+
+## Manage Client Orgs and Stores — verified behaviour
+
+Against the DEV portal, build `2026-09-01-2`. Reached from Patient Profile Edit
+(`/providers/:id/update-profile`) via the Administration side menu's **Manage Client Orgs and
+Stores** item, landing on `/providers/:id/client-org-store`.
+
+- **An organization's checkbox has no accessible name**; its name button does, but is
+  UPPERCASED SERVER-SIDE regardless of how the organization was named at creation (e.g.
+  "Organization 5" renders as "ORGANIZATION 5"). `ManageClientOrgsAndStoresPage` matches
+  organization rows case-insensitively rather than upper-casing the expected name.
+- **The expand/collapse chevron is icon-only with no accessible name.** It's the only other
+  button in an organization's row besides the name button, so `.last()` reliably picks it.
+- **A store's checkbox is disabled until its parent organization's checkbox is checked**, and
+  only interactable once the organization is expanded — MUI's Collapse keeps a collapsed
+  organization's stores in the DOM at zero height, which Playwright treats as hidden. An
+  organization with no stores expands to a text-only "No Locations Available" row instead.
+- **A store row's accessible text concatenates its name and subtitle with no separator** (e.g.
+  "Location 4Loc 4"), so store rows are matched by a name *prefix*, not an exact string.
+- **A store's row is a DOM sibling of its organization's row, not a descendant** — both are
+  wrapped in a shared, roleless parent. `ManageClientOrgsAndStoresPage` reaches an
+  organization's stores via `xpath=following-sibling::*[1]` off the organization row.
+  `pickOrganizationWithStore()` uses this to auto-discover an organization with an available
+  store (never hardcoded, since which ones have stores varies by environment — same reasoning
+  as `AddPatientModal.pickOrganizationAndStore()`), skipping any organization whose checkbox is
+  already checked so it doesn't just re-pick the one auto-assigned at patient creation.
+- **The organization tree populates from an async fetch after the page's heading renders.**
+  `expectOpen()` waits for the first checkbox to appear so callers never query an empty list —
+  without it, a fast-running test (like `pickOrganizationWithStore()`'s traversal) can read
+  zero rows.
+- **"Assign Items" is the single control for both assigning and unassigning.** Clicking it
+  persists whatever is currently checked and drops whatever was unchecked, for every
+  organization/store pair on the page in one call — not just the ones just changed. It raises
+  a MUI Snackbar alert whose text matches the `assignClientOrgsStoresToAccount` mutation's own
+  success message, used as the immediate success signal (verified against the network request)
+  for both directions; reloading the page is the reliable way to confirm the change actually
+  persisted server-side rather than only in local component state.

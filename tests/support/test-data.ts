@@ -101,3 +101,31 @@ export function uniqueInsuranceMemberId(): string {
   counter += 1;
   return `${ZZ_PREFIX} ${Date.now()}${counter}`.slice(0, 25);
 }
+
+/**
+ * Unique medication SIG text, ZZ_PREFIX-tagged so E2E-created medications are identifiable
+ * in the Triage Medications grid. Used when Medication Name itself can't carry the prefix —
+ * i.e. picked from the fixed autocomplete list rather than typed as free text.
+ */
+export function uniqueMedicationSig(label = 'Sig'): string {
+  counter += 1;
+  return `${ZZ_PREFIX} ${label} ${Date.now()}-${counter}`;
+}
+
+/** Unique, ZZ_PREFIX-tagged medication name for manual (typed, not autocomplete-picked) entry. */
+export function uniqueMedicationName(label = 'Med'): string {
+  counter += 1;
+  return `${ZZ_PREFIX} ${label} ${Date.now()}-${counter}`;
+}
+
+/** Unique, ZZ_PREFIX-tagged MedRec name, so E2E-created MedRecs are identifiable. */
+export function uniqueMedRecName(label = 'MedRec'): string {
+  counter += 1;
+  return `${ZZ_PREFIX} ${label} ${Date.now()}-${counter}`;
+}
+
+/** Unique, ZZ_PREFIX-tagged activity note, so E2E-created activities are identifiable. */
+export function uniqueActivityNote(label = 'Activity'): string {
+  counter += 1;
+  return `${ZZ_PREFIX} ${label} ${Date.now()}-${counter}`;
+}
