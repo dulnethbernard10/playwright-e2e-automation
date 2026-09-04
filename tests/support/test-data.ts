@@ -118,3 +118,9 @@ export function uniqueActivityNote(label = 'Activity'): string {
   counter += 1;
   return `${ZZ_PREFIX} ${label} ${Date.now()}-${counter}`;
 }
+
+/** Unique, ZZ_PREFIX-tagged follow-up note, so E2E-created follow-ups are identifiable. */
+export function uniqueFollowUpNote(label = 'FollowUp'): string {
+  counter += 1;
+  return `${ZZ_PREFIX} ${label} ${Date.now()}-${counter}`;
+}
