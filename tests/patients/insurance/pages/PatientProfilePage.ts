@@ -1,20 +1,21 @@
 import { expect, type Locator, type Page } from '@playwright/test';
-import { DemographicProfileFields } from './DemographicProfileFields';
+import { DemographicProfileFields } from '../../../support/pages/DemographicProfileFields';
 
 /**
  * The "Patient Profile" tab of a patient's edit-profile page
  * (`/providers/:id/update-profile`) — shown by default, and reachable explicitly via
- * PatientEditProfilePage.goToPatientProfile().
+ * `UpdateProfilePage.goToPatientProfile()`.
  *
  * Verified against the DEV portal, build 2026-09-01-2:
  *  - The page's own "Demographic Profile:" section starts with every field disabled; checking
  *    "Add Demographic Profile" enables them. Same fields, same quirks as the reactive modal
- *    Insurance Plans opens for a patient with no profile yet — both share
- *    DemographicProfileFields.
+ *    Insurance Plans opens for a patient with no profile yet, and as patients/onboarding's own
+ *    Patient Profile edit screen (`PatientProfileEditPage`) — all three share
+ *    `DemographicProfileFields`.
  *  - **Saving here navigates away** from `/update-profile` to `/patients/:id/details` — unlike
  *    the modal, which just closes and leaves you wherever you were. Callers that need to get
  *    back to Insurance Plans afterwards should re-open the edit-profile page via
- *    `PatientEditProfilePage.openFromPatientPage()`.
+ *    `UpdateProfilePage.openFromPatientPage()`.
  */
 export class PatientProfilePage {
   readonly addDemographicProfileCheckbox: Locator;

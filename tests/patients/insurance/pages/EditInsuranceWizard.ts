@@ -27,10 +27,10 @@ export class EditInsuranceWizard {
 
   constructor(private readonly page: Page) {
     this.dialog = page.getByRole('dialog').filter({ hasText: 'Edit Insurance Plan' });
-    this.insuranceIdNumberInput = this.dialog.getByRole('textbox', { name: 'Insurance ID Number' });
-    this.insurancePackageCombobox = this.dialog.getByRole('combobox', { name: 'Insurance Package' });
+    this.insuranceIdNumberInput = this.dialog.getByRole('textbox', { name: 'Insurance ID Number', exact: true });
+    this.insurancePackageCombobox = this.dialog.getByRole('combobox', { name: 'Insurance Package', exact: true });
     this.sequenceTrigger = this.dialog.getByRole('button', { name: /^(Primary|Secondary|Tertiary|Insurance \d+)$/ });
-    this.insurancePhoneNumberInput = this.dialog.getByRole('textbox', { name: 'Insurance Phone Number' });
+    this.insurancePhoneNumberInput = this.dialog.getByRole('textbox', { name: 'Insurance Phone Number', exact: true });
     this.updateButton = this.dialog.getByRole('button', { name: 'Update Insurance Plan', exact: true });
     this.cancelButton = this.dialog.getByRole('button', { name: 'Cancel', exact: true });
   }

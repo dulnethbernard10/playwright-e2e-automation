@@ -1,7 +1,7 @@
 import { test as base } from '@playwright/test';
 import { PatientsLookupPage } from '../../support/pages/PatientsLookupPage';
 import { AddPatientModal } from '../onboarding/pages/AddPatientModal';
-import { PatientEditProfilePage } from './pages/PatientEditProfilePage';
+import { UpdateProfilePage } from './pages/UpdateProfilePage';
 import { InsurancePlansPage } from './pages/InsurancePlansPage';
 import {
   randomDateOfBirth,
@@ -17,9 +17,9 @@ import {
  * the Patient Profile tab (Insurance Plans refuses to manage insurance without one), then
  * navigate to Insurance Plans. Saving the Demographic Profile navigates away, so the
  * edit-profile page is reopened afterwards to reach Insurance Plans — see
- * PatientProfilePage.addDemographicProfile() and PatientEditProfilePage's class docs.
+ * PatientProfilePage.addDemographicProfile() and UpdateProfilePage's class docs.
  *
- * `patientTag`, `patientGender`, and `patientDateOfBirth` are option fixtures a spec overrides
+ * `patientTag`, `patientGender`, and `patientAgeRange` are option fixtures a spec overrides
  * with `test.use({...})` when it needs a distinct patient label (so generated patients stay
  * identifiable per spec in the QA grid) or a specific age/gender (e.g. dual-insurance.spec.ts
  * needs an older patient for Medicare eligibility).
@@ -62,10 +62,10 @@ export const test = base.extend<InsuranceFixtures>({
     await patients.expectPatientFound(fullName);
     await patients.openPatient(fullName);
 
-    const patientProfile = await (await PatientEditProfilePage.openFromPatientPage(page)).goToPatientProfile();
+    const patientProfile = await (await UpdateProfilePage.openFromPatientPage(page)).goToPatientProfile();
     await patientProfile.addDemographicProfile();
 
-    const editProfile = await PatientEditProfilePage.openFromPatientPage(page);
+    const editProfile = await UpdateProfilePage.openFromPatientPage(page);
     const insurancePlans = await editProfile.goToInsurancePlans();
 
     await use(insurancePlans);
