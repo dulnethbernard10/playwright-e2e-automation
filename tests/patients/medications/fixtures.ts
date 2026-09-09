@@ -5,8 +5,7 @@ import { TriageMedicationsPage } from './pages/TriageMedicationsPage';
 export const test = base.extend<{ medications: TriageMedicationsPage }>({
   medications: async ({ page }, use) => {
     const enrolledPatients = new EnrolledPatientsPage(page);
-    await enrolledPatients.goto();
-    await enrolledPatients.openFirstReadingsCapablePatient();
+    await enrolledPatients.openRandomReadingsCapablePatient();
 
     const medications = new TriageMedicationsPage(page);
     await medications.open();
